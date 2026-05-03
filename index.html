@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenCode Zen — Precios Dashboard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;
+  --text:#e8e8f0;--text2:#8888a0;--accent:#6c5ce7;--accent2:#a29bfe;
+  --green:#00cec9;--orange:#fdcb6e;--red:#ff6b6b;--blue:#74b9ff;
+  --pink:#fd79a8;--cyan:#00cec9;--yellow:#ffeaa7;
+}
+html{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);scroll-behavior:smooth}
+body{min-height:100vh;padding:0 0 60px}
+a{color:var(--accent2);text-decoration:none}
+.container{max-width:1400px;margin:0 auto;padding:0 24px}
+
+header{
+  background:linear-gradient(135deg,#0a0a1a 0%,#1a103a 50%,#0a0a1a 100%);
+  border-bottom:1px solid var(--border);
+  padding:40px 0 32px;
+  position:relative;
+  overflow:hidden;
+}
+header::before{
+  content:'';position:absolute;top:-50%;right:-20%;width:600px;height:600px;
+  background:radial-gradient(circle,rgba(108,92,231,.15) 0%,transparent 70%);
+  pointer-events:none;
+}
+header::after{
+  content:'';position:absolute;bottom:-60%;left:-10%;width:500px;height:500px;
+  background:radial-gradient(circle,rgba(0,206,201,.1) 0%,transparent 70%);
+  pointer-events:none;
+}
+.header-content{position:relative;z-index:1}
+.header-content h1{
+  font-size:2.4rem;font-weight:800;
+  background:linear-gradient(135deg,var(--accent2),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+}
+.header-content p{color:var(--text2);margin-top:6px;font-size:.95rem}
+.header-content .badge{
+  display:inline-block;background:rgba(108,92,231,.2);border:1px solid var(--accent);
+  color:var(--accent2);font-size:.7rem;font-weight:600;padding:2px 10px;
+  border-radius:20px;margin-left:12px;vertical-align:middle;
+}
+.header-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.header-spacer{flex:1}
+.refresh-btn,.attr-btn{
+  background:var(--surface);border:1px solid var(--border);color:var(--text2);
+  padding:6px 16px;border-radius:8px;font-size:.8rem;cursor:pointer;
+  transition:all .2s;display:inline-flex;align-items:center;gap:6px;
+}
+.refresh-btn:hover,.attr-btn:hover{border-color:var(--accent);color:var(--text)}
+.refresh-btn.loading{opacity:.6;pointer-events:none}
+.refresh-btn.loading svg{animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.status-pill{
+  font-size:.7rem;padding:3px 10px;border-radius:12px;font-weight:600;
+  display:inline-flex;align-items:center;gap:4px;
+}
+.status-pill.ok{background:rgba(0,206,201,.15);color:var(--green)}
+.status-pill.fallback{background:rgba(253,203,110,.15);color:var(--orange)}
+.status-pill.error{background:rgba(255,107,107,.15);color:var(--red)}
+.status-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+.info-section{margin:20px 0 0}
+.info-toggle{
+  display:flex;align-items:center;gap:8px;cursor:pointer;
+  color:var(--text2);font-size:.85rem;user-select:none;
+  padding:8px 0;transition:color .2s;
+}
+.info-toggle:hover{color:var(--text)}
+.info-toggle .chevron{
+  display:inline-block;transition:transform .25s;font-size:.65rem;
+}
+.info-toggle.open .chevron{transform:rotate(90deg)}
+.info-body{
+  max-height:0;overflow:hidden;transition:max-height .35s ease,opacity .3s;opacity:0;
+}
+.info-body.open{max-height:600px;opacity:1}
+.info-body-inner{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px 24px;margin-top:8px;color:var(--text2);font-size:.85rem;line-height:1.7;
+}
+.info-body-inner h3{color:var(--text);font-size:.95rem;margin:0 0 8px}
+.info-body-inner ul{margin:4px 0 12px 20px}
+.info-body-inner li{margin-bottom:4px}
+.info-body-inner code{
+  background:var(--surface2);padding:1px 6px;border-radius:4px;
+  font-family:'SF Mono','Fira Code',monospace;font-size:.8rem;color:var(--accent2);
+}
+
+.stats-row{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;margin:24px 0;
+}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:12px;
+  padding:20px;position:relative;overflow:hidden;
+  transition:transform .2s,border-color .2s;
+}
+.stat-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.stat-card .label{font-size:.75rem;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
+.stat-card .value{font-size:1.8rem;font-weight:700;margin-top:4px}
+.stat-card .sub{font-size:.75rem;color:var(--text2);margin-top:2px}
+.stat-card::after{
+  content:'';position:absolute;top:0;right:0;width:60px;height:60px;
+  border-radius:0 0 0 60px;opacity:.1;
+}
+.stat-card:nth-child(1) .value{color:var(--accent2)}
+.stat-card:nth-child(1)::after{background:var(--accent)}
+.stat-card:nth-child(2) .value{color:var(--green)}
+.stat-card:nth-child(2)::after{background:var(--green)}
+.stat-card:nth-child(3) .value{color:var(--orange)}
+.stat-card:nth-child(3)::after{background:var(--orange)}
+.stat-card:nth-child(4) .value{color:var(--blue)}
+.stat-card:nth-child(4)::after{background:var(--blue)}
+.stat-card:nth-child(5) .value{color:var(--red)}
+.stat-card:nth-child(5)::after{background:var(--red)}
+
+.controls{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin:16px 0 12px}
+.search-box{
+  flex:1;min-width:220px;position:relative;
+}
+.search-box input{
+  width:100%;background:var(--surface);border:1px solid var(--border);
+  color:var(--text);padding:10px 14px 10px 38px;border-radius:8px;font-size:.9rem;
+  outline:none;transition:border-color .2s;
+}
+.search-box input:focus{border-color:var(--accent)}
+.search-box svg{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--text2);width:16px;height:16px;
+}
+
+.filter-group{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.filter-group .filter-label{font-size:.75rem;color:var(--text2);margin-right:8px;text-transform:uppercase;letter-spacing:.04em;min-width:70px}
+.chip{
+  background:var(--surface);border:1px solid var(--border);color:var(--text2);
+  padding:6px 14px;border-radius:20px;font-size:.8rem;cursor:pointer;
+  transition:all .2s;user-select:none;white-space:nowrap;
+  margin-right:6px;
+}
+.chip:hover{border-color:var(--accent);color:var(--text)}
+.chip.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.chip .count{font-size:.7rem;opacity:.7;margin-left:4px}
+
+.toggle-row{display:flex;gap:16px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.toggle-btn,.compare-btn{
+  background:var(--surface);border:1px solid var(--border);color:var(--text2);
+  padding:6px 14px;border-radius:8px;font-size:.8rem;cursor:pointer;
+  transition:all .2s;user-select:none;
+}
+.toggle-btn:hover,.compare-btn:hover{border-color:var(--accent);color:var(--text)}
+.toggle-btn.active,.compare-btn.active{background:rgba(108,92,231,.2);border-color:var(--accent);color:var(--accent2)}
+.compare-btn{background:rgba(108,92,231,.15);border-color:var(--accent);color:var(--accent2)}
+.compare-btn:disabled{opacity:.35;pointer-events:none}
+.compare-count{
+  background:var(--accent);color:#fff;font-size:.65rem;font-weight:700;
+  padding:1px 6px;border-radius:10px;margin-left:4px;
+}
+
+.table-wrap{
+  overflow-x:auto;border:1px solid var(--border);border-radius:12px;
+  background:var(--surface);
+}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+thead{background:var(--surface2)}
+th{
+  padding:12px 16px;text-align:left;font-weight:600;color:var(--text2);
+  font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;
+  border-bottom:1px solid var(--border);white-space:nowrap;
+  cursor:pointer;user-select:none;position:relative;
+  transition:color .2s;
+}
+th:hover{color:var(--text)}
+th .sort-icon{margin-left:4px;font-size:.65rem;opacity:.4;transition:opacity .2s}
+th.sorted .sort-icon{opacity:1;color:var(--accent2)}
+th.no-sort{cursor:default}
+th.no-sort:hover{color:var(--text2)}
+td{padding:10px 16px;border-bottom:1px solid rgba(42,42,58,.5);white-space:nowrap}
+tr{transition:background .15s}
+tr:hover{background:rgba(108,92,231,.05)}
+tr:last-child td{border-bottom:none}
+tr.checked-row{background:rgba(108,92,231,.08)}
+
+.row-cb{
+  width:16px;height:16px;accent-color:var(--accent);cursor:pointer;
+  vertical-align:middle;
+}
+th .row-cb{vertical-align:middle}
+
+.model-name{font-weight:600;color:var(--text)}
+.model-id{font-size:.72rem;color:var(--text2);font-family:'SF Mono','Fira Code',monospace;margin-top:2px}
+.provider-badge{
+  display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600;
+}
+.provider-openai{background:rgba(116,185,255,.15);color:var(--blue)}
+.provider-anthropic{background:rgba(253,121,168,.15);color:var(--pink)}
+.provider-google{background:rgba(0,206,201,.15);color:var(--cyan)}
+.provider-other{background:rgba(253,203,110,.15);color:var(--orange)}
+
+.price{font-family:'SF Mono','Fira Code',monospace;font-size:.85rem}
+.price-free{color:var(--green);font-weight:700}
+.price-na{color:var(--text2);opacity:.4}
+.price-bar{
+  display:inline-block;height:6px;border-radius:3px;margin-left:8px;vertical-align:middle;
+  min-width:2px;
+}
+.deprecated-badge{
+  display:inline-block;background:rgba(255,107,107,.15);color:var(--red);
+  font-size:.65rem;font-weight:600;padding:1px 6px;border-radius:3px;
+  margin-left:6px;vertical-align:middle;
+}
+
+.no-results{
+  text-align:center;padding:60px 20px;color:var(--text2);
+}
+.no-results .icon{font-size:3rem;margin-bottom:12px;opacity:.3}
+
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .25s;
+  backdrop-filter:blur(4px);
+}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:32px;max-width:420px;width:90%;position:relative;
+  transform:scale(.92);transition:transform .25s;text-align:center;
+}
+.modal-overlay.open .modal{transform:scale(1)}
+.modal-close{
+  position:absolute;top:12px;right:14px;background:none;border:none;
+  color:var(--text2);font-size:1.4rem;cursor:pointer;line-height:1;
+  transition:color .2s;
+}
+.modal-close:hover{color:var(--text)}
+.modal-avatar{
+  width:100px;height:100px;border-radius:50%;border:3px solid var(--accent);
+  margin:0 auto 16px;display:block;object-fit:cover;
+}
+.modal h2{font-size:1.3rem;margin-bottom:4px;color:var(--text)}
+.modal .modal-role{color:var(--text2);font-size:.85rem;margin-bottom:16px}
+.modal-links{display:flex;gap:12px;justify-content:center;margin-top:12px}
+.modal-links a{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--surface2);border:1px solid var(--border);
+  padding:8px 16px;border-radius:8px;font-size:.8rem;
+  transition:all .2s;
+}
+.modal-links a:hover{border-color:var(--accent);color:var(--text)}
+
+footer{
+  text-align:center;padding:40px 0 20px;color:var(--text2);font-size:.75rem;
+}
+footer a{color:var(--accent2)}
+
+@media(max-width:768px){
+  .header-content h1{font-size:1.6rem}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .controls{flex-direction:column;align-items:stretch}
+  .search-box{min-width:auto}
+  th,td{padding:8px 10px;font-size:.75rem}
+  .price-bar{display:none}
+  .header-spacer{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="container header-content">
+  <div class="header-row">
+    <div>
+      <h1>OpenCode Zen Precios <span class="badge">BETA</span></h1>
+      <p>Precios por 1M tokens &mdash; dashboard interactivo con filtros y ordenamiento</p>
+    </div>
+    <span class="header-spacer"></span>
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+      Actualizar
+    </button>
+    <span class="status-pill fallback" id="statusPill"><span class="dot"></span>Datos locales</span>
+    <button class="attr-btn" onclick="openModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Autor
+    </button>
+  </div>
+</div>
+</header>
+
+<div class="container">
+
+<div class="info-section">
+  <div class="info-toggle" id="infoToggle" onclick="toggleInfo()">
+    <span class="chevron">&#9654;</span> &iquest;Qu&eacute; hace esta app y c&oacute;mo funciona?
+  </div>
+  <div class="info-body" id="infoBody">
+    <div class="info-body-inner">
+      <h3>&iquest;Qu&eacute; es este dashboard?</h3>
+      <p>Esta Single Page Application (SPA) muestra la tabla de precios de modelos AI disponibles en <strong>OpenCode Zen</strong> de forma interactiva, con filtros por proveedor y tipo, ordenamiento por cualquier columna, y una vista de comparaci&oacute;n para seleccionar modelos lado a lado.</p>
+      <h3>&iquest;De d&oacute;nde salen los datos?</h3>
+      <p>Al cargar la p&aacute;gina, se intenta obtener el HTML desde <code>https://opencode.ai/docs/es/zen/</code> y se parsean autom&aacute;ticamente tres tablas:</p>
+      <ul>
+        <li><strong>Tabla de endpoints</strong> &mdash; para obtener el <em>Model ID</em> de cada modelo</li>
+        <li><strong>Tabla de precios</strong> &mdash; para entrada, salida, cache de lectura y cache de escritura (por 1M tokens)</li>
+        <li><strong>Tabla de obsoletos</strong> &mdash; para marcar modelos con fecha de retirada</li>
+      </ul>
+      <h3>&iquest;Qu&eacute; pasa si falla la descarga?</h3>
+      <p>Si la petici&oacute;n directa falla por CORS, se intentan proxies alternativos (<code>allorigins.win</code>, <code>corsproxy.io</code>). Si todo falla, se usan datos locales (fallback) embebidos en el archivo. El indicador de estado muestra si los datos son <em>en vivo</em> o <em>locales</em>.</p>
+      <h3>Controles disponibles</h3>
+      <ul>
+        <li><strong>Buscar</strong> &mdash; filtra por nombre o Model ID</li>
+        <li><strong>Proveedor</strong> &mdash; OpenAI, Anthropic, Google, Otros</li>
+        <li><strong>Tipo</strong> &mdash; Todos, Gratuitos, Pagados</li>
+        <li><strong>Ordenar</strong> &mdash; clic en cualquier encabezado de columna</li>
+        <li><strong>Comparar</strong> &mdash; marca checkboxes y pulsa &ldquo;Comparar&rdquo; para ver solo los seleccionados</li>
+        <li><strong>Refresh</strong> &mdash; re-descarga los datos desde la fuente</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="stats-row" id="statsRow"></div>
+
+<div class="controls">
+  <div class="search-box">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="searchInput" placeholder="Buscar modelo...">
+  </div>
+</div>
+
+<div class="controls">
+  <div class="filter-group">
+    <span class="filter-label">Proveedor</span>
+    <div id="providerChips"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="filter-group">
+    <span class="filter-label">Tipo</span>
+    <div id="typeChips"></div>
+  </div>
+</div>
+
+<div class="toggle-row">
+  <button class="toggle-btn" id="toggleDeprecated" onclick="toggleDeprecated()">Ocultar obsoletos</button>
+  <button class="toggle-btn" id="toggleFree" onclick="toggleFree()">Solo gratuitos</button>
+  <button class="compare-btn" id="compareBtn" disabled onclick="toggleCompare()">Comparar<span class="compare-count" id="compareCount">0</span></button>
+</div>
+
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th class="no-sort" style="width:40px;text-align:center"><input type="checkbox" class="row-cb" id="selectAll" onclick="toggleSelectAll(this.checked)" title="Seleccionar todos"></th>
+      <th data-col="name" onclick="sortBy('name')">Modelo <span class="sort-icon">&#9650;</span></th>
+      <th data-col="id" onclick="sortBy('id')">Model ID <span class="sort-icon">&#9650;</span></th>
+      <th data-col="provider" onclick="sortBy('provider')">Proveedor <span class="sort-icon">&#9650;</span></th>
+      <th data-col="input" onclick="sortBy('input')">Entrada <span class="sort-icon">&#9650;</span></th>
+      <th data-col="output" onclick="sortBy('output')">Salida <span class="sort-icon">&#9650;</span></th>
+      <th data-col="cacheRead" onclick="sortBy('cacheRead')">Cache R <span class="sort-icon">&#9650;</span></th>
+      <th data-col="cacheWrite" onclick="sortBy('cacheWrite')">Cache W <span class="sort-icon">&#9650;</span></th>
+    </tr>
+  </thead>
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+
+<footer>
+  Datos de <a href="https://opencode.ai/docs/es/zen/#precios" target="_blank">opencode.ai/docs/es/zen</a> &middot; Precios por 1M tokens &middot; Comisiones de tarjeta: 4.4% + $0.30
+</footer>
+
+</div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <img class="modal-avatar" src="https://drive.google.com/thumbnail?id=1pbNyTrnZeZvfWLu2Lm66f9tVQ3OqTKHx&sz=w500-h500" alt="Pablo Felip">
+    <h2>Pablo Felip</h2>
+    <div class="modal-role">Creador de este dashboard</div>
+    <div class="modal-links">
+      <a href="https://www.linkedin.com/in/pfelipm/" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+        LinkedIn
+      </a>
+      <a href="https://github.com/pfelipm/" target="_blank">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+const FALLBACK_DATA = [
+  {name:"Big Pickle",id:"big-pickle",provider:"other",input:0,output:0,cacheRead:0,cacheWrite:null,free:true},
+  {name:"MiniMax M2.5 Free",id:"minimax-m2.5-free",provider:"other",input:0,output:0,cacheRead:0,cacheWrite:null,free:true},
+  {name:"Ling 2.6 Flash Free",id:"ling-2.6-flash-free",provider:"other",input:0,output:0,cacheRead:0,cacheWrite:null,free:true},
+  {name:"Hy3 Preview Free",id:"hy3-preview-free",provider:"other",input:0,output:0,cacheRead:0,cacheWrite:null,free:true},
+  {name:"Nemotron 3 Super Free",id:"nemotron-3-super-free",provider:"other",input:0,output:0,cacheRead:0,cacheWrite:null,free:true},
+  {name:"GPT 5 Nano",id:"gpt-5-nano",provider:"openai",input:0,output:0,cacheRead:0,cacheWrite:null,free:true},
+  {name:"MiniMax M2.7",id:"minimax-m2.7",provider:"other",input:0.30,output:1.20,cacheRead:0.06,cacheWrite:0.375,free:false},
+  {name:"MiniMax M2.5",id:"minimax-m2.5",provider:"other",input:0.30,output:1.20,cacheRead:0.06,cacheWrite:0.375,free:false},
+  {name:"GLM 5.1",id:"glm-5.1",provider:"other",input:1.40,output:4.40,cacheRead:0.26,cacheWrite:null,free:false},
+  {name:"GLM 5",id:"glm-5",provider:"other",input:1.00,output:3.20,cacheRead:0.20,cacheWrite:null,free:false,deprecated:"May 14, 2026"},
+  {name:"Kimi K2.5",id:"kimi-k2.5",provider:"other",input:0.60,output:3.00,cacheRead:0.10,cacheWrite:null,free:false},
+  {name:"Kimi K2.6",id:"kimi-k2.6",provider:"other",input:0.95,output:4.00,cacheRead:0.16,cacheWrite:null,free:false},
+  {name:"Qwen3.6 Plus",id:"qwen3.6-plus",provider:"other",input:0.50,output:3.00,cacheRead:0.05,cacheWrite:0.625,free:false},
+  {name:"Qwen3.5 Plus",id:"qwen3.5-plus",provider:"other",input:0.20,output:1.20,cacheRead:0.02,cacheWrite:0.25,free:false},
+  {name:"Claude Opus 4.7",id:"claude-opus-4-7",provider:"anthropic",input:5.00,output:25.00,cacheRead:0.50,cacheWrite:6.25,free:false},
+  {name:"Claude Opus 4.6",id:"claude-opus-4-6",provider:"anthropic",input:5.00,output:25.00,cacheRead:0.50,cacheWrite:6.25,free:false},
+  {name:"Claude Opus 4.5",id:"claude-opus-4-5",provider:"anthropic",input:5.00,output:25.00,cacheRead:0.50,cacheWrite:6.25,free:false},
+  {name:"Claude Opus 4.1",id:"claude-opus-4-1",provider:"anthropic",input:15.00,output:75.00,cacheRead:1.50,cacheWrite:18.75,free:false},
+  {name:"Claude Sonnet 4.6",id:"claude-sonnet-4-6",provider:"anthropic",input:3.00,output:15.00,cacheRead:0.30,cacheWrite:3.75,free:false},
+  {name:"Claude Sonnet 4.5 (\u2264 200K)",id:"claude-sonnet-4-5",provider:"anthropic",input:3.00,output:15.00,cacheRead:0.30,cacheWrite:3.75,free:false},
+  {name:"Claude Sonnet 4.5 (> 200K)",id:"claude-sonnet-4-5-high",provider:"anthropic",input:6.00,output:22.50,cacheRead:0.60,cacheWrite:7.50,free:false},
+  {name:"Claude Sonnet 4 (\u2264 200K)",id:"claude-sonnet-4",provider:"anthropic",input:3.00,output:15.00,cacheRead:0.30,cacheWrite:3.75,free:false,deprecated:"June 15, 2026"},
+  {name:"Claude Sonnet 4 (> 200K)",id:"claude-sonnet-4-high",provider:"anthropic",input:6.00,output:22.50,cacheRead:0.60,cacheWrite:7.50,free:false,deprecated:"June 15, 2026"},
+  {name:"Claude Haiku 4.5",id:"claude-haiku-4-5",provider:"anthropic",input:1.00,output:5.00,cacheRead:0.10,cacheWrite:1.25,free:false},
+  {name:"Gemini 3.1 Pro (\u2264 200K)",id:"gemini-3.1-pro",provider:"google",input:2.00,output:12.00,cacheRead:0.20,cacheWrite:null,free:false},
+  {name:"Gemini 3.1 Pro (> 200K)",id:"gemini-3.1-pro-high",provider:"google",input:4.00,output:18.00,cacheRead:0.40,cacheWrite:null,free:false},
+  {name:"Gemini 3 Flash",id:"gemini-3-flash",provider:"google",input:0.50,output:3.00,cacheRead:0.05,cacheWrite:null,free:false},
+  {name:"GPT 5.5 (\u2264 272K)",id:"gpt-5.5",provider:"openai",input:5.00,output:30.00,cacheRead:0.50,cacheWrite:null,free:false},
+  {name:"GPT 5.5 (> 272K)",id:"gpt-5.5-high",provider:"openai",input:10.00,output:45.00,cacheRead:1.00,cacheWrite:null,free:false},
+  {name:"GPT 5.5 Pro",id:"gpt-5.5-pro",provider:"openai",input:30.00,output:180.00,cacheRead:30.00,cacheWrite:null,free:false},
+  {name:"GPT 5.4 (\u2264 272K)",id:"gpt-5.4",provider:"openai",input:2.50,output:15.00,cacheRead:0.25,cacheWrite:null,free:false},
+  {name:"GPT 5.4 (> 272K)",id:"gpt-5.4-high",provider:"openai",input:5.00,output:22.50,cacheRead:0.50,cacheWrite:null,free:false},
+  {name:"GPT 5.4 Pro",id:"gpt-5.4-pro",provider:"openai",input:30.00,output:180.00,cacheRead:30.00,cacheWrite:null,free:false},
+  {name:"GPT 5.4 Mini",id:"gpt-5.4-mini",provider:"openai",input:0.75,output:4.50,cacheRead:0.075,cacheWrite:null,free:false},
+  {name:"GPT 5.4 Nano",id:"gpt-5.4-nano",provider:"openai",input:0.20,output:1.25,cacheRead:0.02,cacheWrite:null,free:false},
+  {name:"GPT 5.3 Codex Spark",id:"gpt-5.3-codex-spark",provider:"openai",input:1.75,output:14.00,cacheRead:0.175,cacheWrite:null,free:false},
+  {name:"GPT 5.3 Codex",id:"gpt-5.3-codex",provider:"openai",input:1.75,output:14.00,cacheRead:0.175,cacheWrite:null,free:false},
+  {name:"GPT 5.2",id:"gpt-5.2",provider:"openai",input:1.75,output:14.00,cacheRead:0.175,cacheWrite:null,free:false},
+  {name:"GPT 5.2 Codex",id:"gpt-5.2-codex",provider:"openai",input:1.75,output:14.00,cacheRead:0.175,cacheWrite:null,free:false,deprecated:"July 23, 2026"},
+  {name:"GPT 5.1",id:"gpt-5.1",provider:"openai",input:1.07,output:8.50,cacheRead:0.107,cacheWrite:null,free:false},
+  {name:"GPT 5.1 Codex",id:"gpt-5.1-codex",provider:"openai",input:1.07,output:8.50,cacheRead:0.107,cacheWrite:null,free:false,deprecated:"July 23, 2026"},
+  {name:"GPT 5.1 Codex Max",id:"gpt-5.1-codex-max",provider:"openai",input:1.25,output:10.00,cacheRead:0.125,cacheWrite:null,free:false,deprecated:"July 23, 2026"},
+  {name:"GPT 5.1 Codex Mini",id:"gpt-5.1-codex-mini",provider:"openai",input:0.25,output:2.00,cacheRead:0.025,cacheWrite:null,free:false,deprecated:"July 23, 2026"},
+  {name:"GPT 5",id:"gpt-5",provider:"openai",input:1.07,output:8.50,cacheRead:0.107,cacheWrite:null,free:false},
+  {name:"GPT 5 Codex",id:"gpt-5-codex",provider:"openai",input:1.07,output:8.50,cacheRead:0.107,cacheWrite:null,free:false,deprecated:"July 23, 2026"},
+];
+
+const SOURCE_URL = "https://opencode.ai/docs/es/zen/";
+const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+];
+
+const PROVIDERS = {
+  openai:{label:"OpenAI / GPT",class:"provider-openai"},
+  anthropic:{label:"Anthropic / Claude",class:"provider-anthropic"},
+  google:{label:"Google / Gemini",class:"provider-google"},
+  other:{label:"Otros",class:"provider-other"},
+};
+
+let DATA = FALLBACK_DATA.slice();
+let maxOutput = Math.max(...DATA.map(d=>d.output));
+let maxInput = Math.max(...DATA.map(d=>d.input));
+let dataStatus = "fallback";
+
+let checkedIds = new Set();
+let compareMode = false;
+
+let state = {
+  search:"",
+  providers:["openai","anthropic","google","other"],
+  type:"all",
+  sortCol:"output",
+  sortDir:"desc",
+  hideDeprecated:false,
+  onlyFree:false,
+};
+
+function parsePriceCell(text){
+  const t=text.trim();
+  if(!t||t==="\u2014"||t==="-"||t.toLowerCase()==="n/a")return null;
+  if(t.toLowerCase()==="free")return 0;
+  const m=t.match(/\$?([\d,.]+)/);
+  if(!m)return null;
+  return parseFloat(m[1].replace(",",""));
+}
+
+function slugify(name){
+  return name.toLowerCase()
+    .replace(/[^\w\s-]/g,"")
+    .replace(/\s+/g,"-")
+    .replace(/-+/g,"-")
+    .replace(/^-|-$/g,"");
+}
+
+function detectProvider(name,id){
+  const n=name.toLowerCase(),i=id.toLowerCase();
+  if(n.startsWith("gpt")||i.startsWith("gpt-"))return"openai";
+  if(n.startsWith("claude")||i.startsWith("claude-"))return"anthropic";
+  if(n.startsWith("gemini")||i.startsWith("gemini-"))return"google";
+  return"other";
+}
+
+function parseDataFromHTML(html){
+  const doc=new DOMParser().parseFromString(html,"text/html");
+  const tables=doc.querySelectorAll("table");
+
+  let endpointsTable,pricingTable,deprecatedTable;
+  tables.forEach(table=>{
+    const hdrs=Array.from(table.querySelectorAll("th,thead td")).map(c=>c.textContent.trim().toLowerCase());
+    if(hdrs.some(h=>h.includes("model id")||h.includes("modelid")))endpointsTable=table;
+    else if(hdrs.some(h=>h.includes("entrada")||h.includes("input")))pricingTable=table;
+    else if(hdrs.some(h=>h.includes("retirada")||h.includes("retirement")))deprecatedTable=table;
+  });
+
+  const modelIdMap={};
+  if(endpointsTable){
+    endpointsTable.querySelectorAll("tbody tr").forEach(row=>{
+      const cells=row.querySelectorAll("td");
+      if(cells.length>=2){
+        const name=cells[0].textContent.trim();
+        const id=cells[1].textContent.trim();
+        modelIdMap[name]=id;
+      }
+    });
+  }
+
+  const deprecatedMap={};
+  if(deprecatedTable){
+    deprecatedTable.querySelectorAll("tbody tr").forEach(row=>{
+      const cells=row.querySelectorAll("td");
+      if(cells.length>=2){
+        const name=cells[0].textContent.trim();
+        const date=cells[1].textContent.trim();
+        deprecatedMap[name]=date;
+      }
+    });
+  }
+
+  const data=[];
+  if(pricingTable){
+    pricingTable.querySelectorAll("tbody tr").forEach(row=>{
+      const cells=row.querySelectorAll("td");
+      if(cells.length<4)return;
+      const name=cells[0].textContent.trim();
+      const input=parsePriceCell(cells[1].textContent);
+      const output=parsePriceCell(cells[2].textContent);
+      const cacheRead=parsePriceCell(cells[3].textContent);
+      const cacheWrite=cells.length>=5?parsePriceCell(cells[4].textContent):null;
+
+      let id=modelIdMap[name]||null;
+      if(!id){
+        const baseName=name.replace(/\s*[\(\[].*[\)\]].*/,"").trim();
+        id=modelIdMap[baseName]||null;
+      }
+      if(!id){
+        id=slugify(name);
+      }else if(/[\(\[]/.test(name)){
+        const high=/>|>\s*\d|high/i.test(name);
+        if(high&&!id.endsWith("-high"))id=id+"-high";
+      }
+
+      const provider=detectProvider(name,id);
+      const free=(input===0&&output===0);
+      const deprecated=deprecatedMap[name]||null;
+
+      data.push({name,id,provider,input,output,cacheRead,cacheWrite,free,deprecated});
+    });
+  }
+  return data;
+}
+
+async function fetchWithTimeout(url,ms=10000){
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),ms);
+  try{
+    const r=await fetch(url,{signal:ctrl.signal});
+    clearTimeout(timer);
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    return await r.text();
+  }catch(e){clearTimeout(timer);throw e;}
+}
+
+async function fetchPage(){
+  try{
+    return await fetchWithTimeout(SOURCE_URL);
+  }catch{}
+  for(const proxy of CORS_PROXIES){
+    try{
+      return await fetchWithTimeout(proxy(SOURCE_URL));
+    }catch{}
+  }
+  throw new Error("All fetch attempts failed");
+}
+
+async function refreshData(){
+  const btn=document.getElementById("refreshBtn");
+  const pill=document.getElementById("statusPill");
+  btn.classList.add("loading");
+  pill.className="status-pill fallback";
+  pill.innerHTML='<span class="dot"></span>Cargando\u2026';
+
+  try{
+    const html=await fetchPage();
+    const parsed=parseDataFromHTML(html);
+    if(parsed.length>0){
+      DATA=parsed;
+      maxOutput=Math.max(...DATA.map(d=>d.output));
+      maxInput=Math.max(...DATA.map(d=>d.input));
+      dataStatus="live";
+      pill.className="status-pill ok";
+      pill.innerHTML='<span class="dot"></span>Datos en vivo';
+    }else{
+      throw new Error("Parsed 0 rows");
+    }
+  }catch(e){
+    DATA=FALLBACK_DATA.slice();
+    maxOutput=Math.max(...DATA.map(d=>d.output));
+    maxInput=Math.max(...DATA.map(d=>d.input));
+    dataStatus="fallback";
+    pill.className="status-pill error";
+    pill.innerHTML='<span class="dot"></span>Fallback local';
+    setTimeout(()=>{
+      pill.className="status-pill fallback";
+      pill.innerHTML='<span class="dot"></span>Datos locales';
+    },3000);
+  }
+  btn.classList.remove("loading");
+  render();
+}
+
+function priceColor(v){
+  if(v===0)return"var(--green)";
+  if(v===null)return"var(--text2)";
+  if(v<=0.5)return"var(--green)";
+  if(v<=3)return"var(--yellow)";
+  if(v<=10)return"var(--orange)";
+  return"var(--red)";
+}
+
+function fmtPrice(v){
+  if(v===null)return"\u2014";
+  if(v===0)return"Free";
+  if(v<0.01)return"<$0.01";
+  if(Number.isInteger(v))return"$"+v.toFixed(2);
+  return"$"+v.toFixed(v>=1?2:3);
+}
+
+function priceBar(v,max){
+  if(v===null||v===0)return"";
+  const pct=Math.min((v/max)*100,100);
+  const w=Math.max(pct,1);
+  return`<span class="price-bar" style="width:${w}px;background:${priceColor(v)};opacity:.5"></span>`;
+}
+
+function getFiltered(){
+  let rows=DATA.slice();
+  if(compareMode){
+    rows=rows.filter(r=>checkedIds.has(r.id));
+  }else{
+    if(state.search){
+      const q=state.search.toLowerCase();
+      rows=rows.filter(r=>r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q));
+    }
+    if(state.providers.length<4){
+      rows=rows.filter(r=>state.providers.includes(r.provider));
+    }
+    if(state.type==="free")rows=rows.filter(r=>r.free);
+    else if(state.type==="paid")rows=rows.filter(r=>!r.free);
+    if(state.hideDeprecated)rows=rows.filter(r=>!r.deprecated);
+    if(state.onlyFree)rows=rows.filter(r=>r.free);
+  }
+
+  const col=state.sortCol;
+  const dir=state.sortDir==="asc"?1:-1;
+  rows.sort((a,b)=>{
+    let va=a[col],vb=b[col];
+    if(col==="name"||col==="id"||col==="provider"){
+      va=va||"";vb=vb||"";
+      return va.localeCompare(vb)*dir;
+    }
+    va=va??Infinity;vb=vb??Infinity;
+    return(va-vb)*dir;
+  });
+  return rows;
+}
+
+function renderStats(){
+  const rows=getFiltered();
+  const free=rows.filter(r=>r.free).length;
+  const paid=rows.filter(r=>!r.free).length;
+  const deprecated=rows.filter(r=>r.deprecated).length;
+  const cheapest=rows.filter(r=>!r.free&&r.input>0).sort((a,b)=>a.input-b.input)[0];
+  const mostExpensive=rows.filter(r=>r.output>0).sort((a,b)=>b.output-a.output)[0];
+
+  document.getElementById("statsRow").innerHTML=`
+    <div class="stat-card"><div class="label">Total modelos</div><div class="value">${rows.length}</div><div class="sub">${paid} pagados &middot; ${free} gratuitos</div></div>
+    <div class="stat-card"><div class="label">Gratis</div><div class="value">${free}</div><div class="sub">entrada + salida + cache</div></div>
+    <div class="stat-card"><div class="label">Entrada m\u00ednima</div><div class="value">${cheapest?fmtPrice(cheapest.input):"\u2014"}</div><div class="sub">${cheapest?cheapest.name:""}</div></div>
+    <div class="stat-card"><div class="label">Salida m\u00e1xima</div><div class="value">${mostExpensive?fmtPrice(mostExpensive.output):"\u2014"}</div><div class="sub">${mostExpensive?mostExpensive.name:""}</div></div>
+    <div class="stat-card"><div class="label">Obsoletos</div><div class="value">${deprecated}</div><div class="sub">pr\u00f3ximos a retirarse</div></div>
+  `;
+}
+
+function renderChips(){
+  const pc=document.getElementById("providerChips");
+  pc.innerHTML=Object.entries(PROVIDERS).map(([k,v])=>{
+    const active=state.providers.includes(k)?"active":"";
+    const count=DATA.filter(d=>d.provider===k).length;
+    return`<span class="chip ${active}" data-provider="${k}" onclick="toggleProvider('${k}')">${v.label} <span class="count">(${count})</span></span>`;
+  }).join("");
+
+  const tc=document.getElementById("typeChips");
+  const types=[
+    {key:"all",label:"Todos",count:DATA.length},
+    {key:"free",label:"Gratuitos",count:DATA.filter(d=>d.free).length},
+    {key:"paid",label:"Pagados",count:DATA.filter(d=>!d.free).length},
+  ];
+  tc.innerHTML=types.map(t=>{
+    const active=state.type===t.key?"active":"";
+    return`<span class="chip ${active}" onclick="setType('${t.key}')">${t.label} <span class="count">(${t.count})</span></span>`;
+  }).join("");
+}
+
+function updateCompareBtn(){
+  const btn=document.getElementById("compareBtn");
+  const countEl=document.getElementById("compareCount");
+  const n=checkedIds.size;
+  countEl.textContent=n;
+  btn.disabled=n===0;
+  if(compareMode){
+    btn.textContent="Salir de comparar ";
+    btn.appendChild(countEl);
+    btn.classList.add("active");
+  }else{
+    btn.textContent="Comparar ";
+    btn.appendChild(countEl);
+    btn.classList.remove("active");
+  }
+}
+
+function renderTable(){
+  const rows=getFiltered();
+  const tbody=document.getElementById("tbody");
+
+  document.querySelectorAll("th").forEach(th=>{
+    const col=th.dataset.col;
+    th.classList.toggle("sorted",col===state.sortCol);
+    const icon=th.querySelector(".sort-icon");
+    if(col===state.sortCol){
+      icon.innerHTML=state.sortDir==="asc"?"&#9650;":"&#9660;";
+    }else if(icon){
+      icon.innerHTML="&#9650;";
+    }
+  });
+
+  const visibleIds=new Set(rows.map(r=>r.id));
+  const selectAll=document.getElementById("selectAll");
+  const visibleChecked=[...visibleIds].filter(id=>checkedIds.has(id)).length;
+  selectAll.checked=visibleIds.size>0&&visibleChecked===visibleIds.size;
+  selectAll.indeterminate=visibleChecked>0&&visibleChecked<visibleIds.size;
+
+  if(!rows.length){
+    const msg=compareMode?"Marca modelos con los checkboxes para comparar":"Sin resultados para los filtros actuales";
+    tbody.innerHTML=`<tr><td colspan="8"><div class="no-results"><div class="icon">\U0001f50d</div>${msg}</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML=rows.map(r=>{
+    const prov=PROVIDERS[r.provider];
+    const dep=r.deprecated?`<span class="deprecated-badge" title="Retirada: ${r.deprecated}">OBSOLETO</span>`:"";
+    const ck=checkedIds.has(r.id)?"checked":"";
+    const ckClass=checkedIds.has(r.id)?"checked-row":"";
+    return`<tr class="${ckClass}">
+      <td style="text-align:center"><input type="checkbox" class="row-cb" data-id="${r.id}" ${ck} onclick="toggleCheck('${r.id}',this.checked)"></td>
+      <td><div class="model-name">${r.name}${dep}</div></td>
+      <td><div class="model-id">${r.id}</div></td>
+      <td><span class="provider-badge ${prov.class}">${prov.label.split("/")[0].trim()}</span></td>
+      <td><span class="price" style="color:${priceColor(r.input)}">${fmtPrice(r.input)}</span>${priceBar(r.input,maxInput)}</td>
+      <td><span class="price" style="color:${priceColor(r.output)}">${fmtPrice(r.output)}</span>${priceBar(r.output,maxOutput)}</td>
+      <td><span class="price" style="color:${priceColor(r.cacheRead)}">${fmtPrice(r.cacheRead)}</span></td>
+      <td><span class="price" style="color:${priceColor(r.cacheWrite)}">${fmtPrice(r.cacheWrite)}</span></td>
+    </tr>`;
+  }).join("");
+}
+
+function render(){
+  renderStats();
+  renderChips();
+  updateCompareBtn();
+  renderTable();
+}
+
+function sortBy(col){
+  if(state.sortCol===col){
+    state.sortDir=state.sortDir==="asc"?"desc":"asc";
+  }else{
+    state.sortCol=col;
+    state.sortDir=col==="name"||col==="id"||col==="provider"?"asc":"desc";
+  }
+  render();
+}
+
+function toggleProvider(p){
+  const i=state.providers.indexOf(p);
+  if(i>=0){
+    if(state.providers.length===1)return;
+    state.providers.splice(i,1);
+  }else{
+    state.providers.push(p);
+  }
+  render();
+}
+
+function setType(t){
+  state.type=t;
+  render();
+}
+
+function toggleDeprecated(){
+  state.hideDeprecated=!state.hideDeprecated;
+  document.getElementById("toggleDeprecated").classList.toggle("active",state.hideDeprecated);
+  document.getElementById("toggleDeprecated").textContent=state.hideDeprecated?"Mostrar obsoletos":"Ocultar obsoletos";
+  render();
+}
+
+function toggleFree(){
+  state.onlyFree=!state.onlyFree;
+  document.getElementById("toggleFree").classList.toggle("active",state.onlyFree);
+  document.getElementById("toggleFree").textContent=state.onlyFree?"Ver todos":"Solo gratuitos";
+  render();
+}
+
+function toggleCheck(id,checked){
+  if(checked)checkedIds.add(id);else checkedIds.delete(id);
+  updateCompareBtn();
+  const rows=getFiltered();
+  const visibleIds=new Set(rows.map(r=>r.id));
+  const visibleChecked=[...visibleIds].filter(i=>checkedIds.has(i)).length;
+  const selectAll=document.getElementById("selectAll");
+  selectAll.checked=visibleIds.size>0&&visibleChecked===visibleIds.size;
+  selectAll.indeterminate=visibleChecked>0&&visibleChecked<visibleIds.size;
+  const tr=document.querySelector(`.row-cb[data-id="${id}"]`);
+  if(tr)tr.closest("tr").classList.toggle("checked-row",checked);
+}
+
+function toggleSelectAll(checked){
+  const rows=getFiltered();
+  rows.forEach(r=>{
+    if(checked)checkedIds.add(r.id);else checkedIds.delete(r.id);
+  });
+  render();
+}
+
+function toggleCompare(){
+  if(compareMode){
+    compareMode=false;
+  }else{
+    if(checkedIds.size===0)return;
+    compareMode=true;
+  }
+  render();
+}
+
+function toggleInfo(){
+  const toggle=document.getElementById("infoToggle");
+  const body=document.getElementById("infoBody");
+  toggle.classList.toggle("open");
+  body.classList.toggle("open");
+}
+
+function openModal(){
+  document.getElementById("modalOverlay").classList.add("open");
+  document.body.style.overflow="hidden";
+}
+function closeModal(){
+  document.getElementById("modalOverlay").classList.remove("open");
+  document.body.style.overflow="";
+}
+function closeModalOutside(e){
+  if(e.target===document.getElementById("modalOverlay"))closeModal();
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape")closeModal();
+});
+
+document.getElementById("searchInput").addEventListener("input",e=>{
+  state.search=e.target.value.trim();
+  render();
+});
+
+render();
+refreshData();
+</script>
+</body>
+</html>
