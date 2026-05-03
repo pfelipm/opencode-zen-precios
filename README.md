@@ -4,6 +4,8 @@ Dashboard interactivo de página única para explorar y comparar los precios de 
 
 ### [>> Pruébalo en vivo <<](https://pfelipm.github.io/opencode-zen-precios/)
 
+![Vista general del dashboard](assets/dashboard.png)
+
 ---
 
 ## Arquitectura
