@@ -2,7 +2,7 @@
 
 Interactive single-page dashboard for exploring and comparing AI model pricing from [OpenCode Zen](https://opencode.ai/docs/es/zen/#precios).
 
-**Live demo:** Open [`index.html`](index.html) in any browser — no build step, no server required.
+### [>> Try it live <<](https://pfelipm.github.io/opencode-zen-precios/)
 
 ---
 
