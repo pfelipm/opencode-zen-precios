@@ -900,7 +900,15 @@ function renderTable(){
   selectAll.indeterminate=visibleChecked>0&&visibleChecked<visibleIds.size;
 
   if(!rows.length){
-    const msg=compareMode?"Marca modelos con los checkboxes para comparar":"Sin resultados para los filtros actuales";
+    let msg;
+    if(compareMode){
+      // Si hay IDs seleccionados pero ninguna fila, los datos aún están cargando
+      // (o son IDs que sólo existen en el dataset en vivo). No es el estado "vacio"
+      // del usuario, que se da cuando checkedIds.size===0.
+      msg=checkedIds.size>0?"Cargando modelos para comparar\u2026":"Marca modelos con los checkboxes para comparar";
+    }else{
+      msg="Sin resultados para los filtros actuales";
+    }
     tbody.innerHTML=`<tr><td colspan="8"><div class="no-results"><div class="icon">\U0001f50d</div>${msg}</div></td></tr>`;
     return;
   }
