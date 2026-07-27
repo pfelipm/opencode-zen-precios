@@ -261,6 +261,23 @@ footer{
 }
 footer a{color:var(--accent2)}
 
+.share-btn{
+  background:var(--surface);border:1px solid var(--border);color:var(--text2);
+  padding:6px 14px;border-radius:8px;font-size:.8rem;cursor:pointer;
+  transition:all .2s;user-select:none;display:inline-flex;align-items:center;gap:6px;
+}
+.share-btn:hover{border-color:var(--accent);color:var(--text)}
+.share-btn svg{width:14px;height:14px}
+
+.toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(16px);
+  background:var(--surface);border:1px solid var(--accent);color:var(--text);
+  padding:10px 18px;border-radius:10px;font-size:.85rem;z-index:2000;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+  opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
 @media(max-width:768px){
   .header-content h1{font-size:1.6rem}
   .stats-row{grid-template-columns:repeat(2,1fr)}
@@ -354,6 +371,10 @@ footer a{color:var(--accent2)}
   <button class="toggle-btn" id="toggleDeprecated" onclick="toggleDeprecated()">Ocultar obsoletos</button>
   <button class="toggle-btn" id="toggleFree" onclick="toggleFree()">Solo gratuitos</button>
   <button class="compare-btn" id="compareBtn" disabled onclick="toggleCompare()">Comparar<span class="compare-count" id="compareCount">0</span></button>
+  <button class="share-btn" id="shareBtn" onclick="shareLink()" aria-label="Compartir vista actual" title="Copiar enlace a esta vista">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+    Compartir
+  </button>
 </div>
 
 <div class="table-wrap">
@@ -379,6 +400,8 @@ footer a{color:var(--accent2)}
 </footer>
 
 </div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
   <div class="modal">
@@ -478,6 +501,118 @@ let state = {
   hideDeprecated:false,
   onlyFree:false,
 };
+
+const SHARE_BASE = "https://pfelipm.github.io/opencode-zen-precios/";
+const ALL_PROVIDERS = ["openai","anthropic","google","other"];
+const VALID_TYPES = ["all","free","paid"];
+const VALID_SORT_COLS = ["name","id","provider","input","output","cacheRead","cacheWrite"];
+
+function arrayEqual(a,b){
+  if(a.length!==b.length)return false;
+  const sa=a.slice().sort(),sb=b.slice().sort();
+  return sa.every((v,i)=>v===sb[i]);
+}
+
+// Construye un URLSearchParams con sólo los params que difieren del estado por defecto.
+function serializeState(){
+  const p=new URLSearchParams();
+  if(state.search)p.set("s",state.search);
+  if(!arrayEqual(state.providers,ALL_PROVIDERS))p.set("providers",state.providers.join(","));
+  if(state.type!=="all")p.set("type",state.type);
+  if(state.sortCol!=="output"||state.sortDir!=="desc")p.set("sort",state.sortCol+":"+state.sortDir);
+  if(state.hideDeprecated)p.set("deps","1");
+  if(state.onlyFree)p.set("free","1");
+  if(compareMode&&checkedIds.size>0){
+    p.set("compare","1");
+    const ids=[...checkedIds].filter(id=>DATA.some(d=>d.id===id));
+    if(ids.length)p.set("ids",ids.join(","));
+  }
+  return p;
+}
+
+// Lee location.search y parchea state/checkedIds/compareMode. Modo de fallo degradado:
+// cualquier param inválido se descarta sin tumbar el resto.
+function deserializeState(){
+  const sp=new URLSearchParams(window.location.search);
+  const s=sp.get("s");
+  if(s!==null)state.search=s;
+  const pv=sp.get("providers");
+  if(pv!==null){
+    const list=pv.split(",").map(x=>x.trim()).filter(Boolean);
+    const valid=list.filter(p=>ALL_PROVIDERS.includes(p));
+    if(valid.length)state.providers=valid;
+  }
+  const tv=sp.get("type");
+  if(tv!==null&&VALID_TYPES.includes(tv))state.type=tv;
+  const sv=sp.get("sort");
+  if(sv!==null){
+    const parts=sv.split(":");
+    if(parts.length===2&&VALID_SORT_COLS.includes(parts[0])&&["asc","desc"].includes(parts[1])){
+      state.sortCol=parts[0];
+      state.sortDir=parts[1];
+    }
+  }
+  if(sp.get("deps")==="1")state.hideDeprecated=true;
+  if(sp.get("free")==="1")state.onlyFree=true;
+  const ids=sp.get("ids");
+  if(ids!==null){
+    ids.split(",").map(x=>x.trim()).filter(Boolean).forEach(id=>checkedIds.add(id));
+  }
+  if(sp.get("compare")==="1"&&checkedIds.size>0)compareMode=true;
+}
+
+// Sincroniza los controles visibles (#searchInput, botones toggle) con state.
+// Las chips de provider/type y los headers de sort se sincronizan en render()/renderTable().
+function syncControls(){
+  const si=document.getElementById("searchInput");
+  if(si)si.value=state.search;
+  const td=document.getElementById("toggleDeprecated");
+  if(td){
+    td.classList.toggle("active",state.hideDeprecated);
+    td.textContent=state.hideDeprecated?"Mostrar obsoletos":"Ocultar obsoletos";
+  }
+  const tf=document.getElementById("toggleFree");
+  if(tf){
+    tf.classList.toggle("active",state.onlyFree);
+    tf.textContent=state.onlyFree?"Ver todos":"Solo gratuitos";
+  }
+}
+
+// Quita de checkedIds los IDs que ya no existen en DATA (tras refreshData con dataset nuevo).
+function pruneCheckedIds(){
+  const validIds=new Set(DATA.map(d=>d.id));
+  for(const id of [...checkedIds]){
+    if(!validIds.has(id))checkedIds.delete(id);
+  }
+  if(checkedIds.size===0)compareMode=false;
+}
+
+let toastTimer=null;
+function showToast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg;
+  t.classList.add("show");
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),1800);
+}
+
+function shareLink(){
+  const p=serializeState();
+  const qs=p.toString();
+  const url=qs?SHARE_BASE+"?"+qs:SHARE_BASE;
+  const copy=()=>{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(url);
+    }
+    return new Promise((res,rej)=>{
+      const ta=document.createElement("textarea");
+      ta.value=url;ta.style.position="fixed";ta.style.opacity="0";
+      document.body.appendChild(ta);ta.select();
+      try{document.execCommand("copy");res();}catch(e){rej(e);}finally{ta.remove();}
+    });
+  };
+  copy().then(()=>showToast("Enlace copiado \u2713")).catch(()=>showToast("No se pudo copiar"));
+}
 
 function parsePriceCell(text){
   const t=text.trim();
@@ -628,6 +763,7 @@ async function refreshData(){
       pill.innerHTML='<span class="dot"></span>Datos locales';
     },3000);
   }
+  pruneCheckedIds();
   btn.classList.remove("loading");
   render();
 }
@@ -892,6 +1028,16 @@ document.getElementById("searchInput").addEventListener("input",e=>{
   render();
 });
 
+deserializeState();
+syncControls();
+// Normaliza la URL: descarta params inválidos que el enlace original pueda traer
+// y reescribe la query con el estado limpio. Mantiene origin+pathname (no rompe local).
+(function normalizeUrl(){
+  const qs=serializeState().toString();
+  const base=window.location.origin+window.location.pathname;
+  const newUrl=qs?base+"?"+qs:base;
+  if(newUrl!==window.location.href)window.history.replaceState(null,"",newUrl);
+})();
 render();
 refreshData();
 </script>

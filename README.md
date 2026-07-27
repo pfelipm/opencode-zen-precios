@@ -181,8 +181,37 @@ python3 -m http.server 8000
 
 - **CORS**: El fetch directo a `opencode.ai` probablemente será bloqueado por la política de same-origin del navegador. El fallback de proxies lo maneja, pero los proxies pueden tener límites de tasa o caídas.
 - **Fragilidad del parseo**: Si la estructura de la página fuente cambia (encabezados de tabla, orden de columnas), el parser puede romperse. Los datos de respaldo aseguran que el dashboard siempre funcione.
-- **Sin persistencia**: Las selecciones de checkboxes y el estado de los filtros están solo en memoria — se pierden al recargar la página.
+- **Persistencia solo vía enlace compartible**: El estado de los filtros, la búsqueda, el orden y la selección de comparación no se guardan en localStorage; **se codifican en la URL** mediante el botón **Compartir**, que copia un enlace con query string legible. Al abrir ese enlace, el dashboard restaura exactamente la misma vista. Ver [Botón Compartir y enlaces de vista](#botón-compartir-y-enlaces-de-vista) más abajo.
 - **Sin componente de servidor**: Toda la computación es del lado del cliente. No se necesitan claves de API.
+
+---
+
+## Botón Compartir y enlaces de vista
+
+El botón **Compartir** genera un enlace canónico (https://pfelipm.github.io/opencode-zen-precios/) que codifica el estado actual del dashboard en un query string **legible**, lo copia al portapapeles y muestra un toast de confirmación. Al abrir ese enlace, la app restaura el estado en el arranque antes del primer render.
+
+### Parámetros de la URL
+
+| Param      | Significado                                            | Ejemplo                          |
+|------------|-------------------------------------------------------|----------------------------------|
+| `s`        | Texto de búsqueda                                     | `s=gpt-5`                        |
+| `providers`| Lista de proveedores activos (coma-sep)               | `providers=openai,anthropic`     |
+| `type`     | Tipo: `all` · `free` · `paid`                          | `type=paid`                      |
+| `sort`     | Columna y dirección: `col:asc|desc`                   | `sort=output:desc`               |
+| `deps`     | `1` oculta modelos obsoletos                           | `deps=1`                         |
+| `free`     | `1` activa "solo gratuitos"                            | `free=1`                         |
+| `compare`  | `1` entra en modo comparación                         | `compare=1`                      |
+| `ids`      | IDs seleccionados para comparar (coma-sep)            | `ids=gpt-5,claude-opus-4-7`       |
+
+Los valores por defecto (`s` vacío, los 4 proveedores activos, `type=all`, `sort=output:desc`, flags off, compare sin IDs) **no se serializan**, para mantener el enlace corto. Cualquier parámetro inválido (proveedor desconocido, columna de orden inválida, IDs inexistentes) se descarta al restaurar sin tumbar el resto del estado — modo de fallo degradado.
+
+Ejemplo completo:
+
+```
+https://pfelipm.github.io/opencode-zen-precios/?s=gpt&providers=openai,anthropic&type=paid&sort=input:asc&compare=1&ids=gpt-5,claude-opus-4-7
+```
+
+Al cargar, la URL se normaliza con `history.replaceState` descartando los parámetros no reconocidos, pero **no** se actualiza en vivo al navegar (solo cambia cuando el usuario vuelve a pulsar Compartir).
 
 ---
 
