@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="zenGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a29bfe" />
+      <stop offset="50%" stop-color="#6c5ce7" />
+      <stop offset="100%" stop-color="#00cec9" />
+    </linearGradient>
+    <radialGradient id="bgGrad" cx="40%" cy="30%" r="75%">
+      <stop offset="0%" stop-color="#1b182d" />
+      <stop offset="100%" stop-color="#0a0a12" />
+    </radialGradient>
+  </defs>
+
+  <!-- Container -->
+  <rect width="64" height="64" rx="14" fill="url(#bgGrad)" stroke="#2b2847" stroke-width="1.5" />
+
+  <!-- Stylized Zen Enso Arc -->
+  <path d="M 44 19 C 36 12.5, 20 14, 15 24 C 9 34.5, 13 47, 24 51 C 36 55, 49 48, 50 35"
+        fill="none"
+        stroke="url(#zenGrad)"
+        stroke-width="5"
+        stroke-linecap="round" />
+
+  <!-- AI / Zen Core Spark -->
+  <path d="M 33 22 C 33 27.5, 37.5 32, 43 32 C 37.5 32, 33 36.5, 33 42 C 33 36.5, 28.5 32, 23 32 C 28.5 32, 33 27.5, 33 22 Z"
+        fill="url(#zenGrad)" />
+</svg>
