@@ -33,9 +33,9 @@ Cero dependencias npm. Cero paso de build. Un archivo.
    │
    └─ fallo (CORS) → intentar proxies CORS en orden:
        │
-       ├─ https://api.allorigins.win/raw?url=...
+       ├─ https://docs-cors-proxy.pfelipm.workers.dev/?url=... (proxy propio, Cloudflare Worker)
        │
-       ├─ https://corsproxy.io/?...
+       ├─ https://api.allorigins.win/raw?url=...
        │
        └─ todos fallan → usar FALLBACK_DATA embebido
 ```
@@ -60,7 +60,16 @@ La detección de proveedor (`detectProvider`) clasifica los modelos por prefijo 
 
 ### Datos de respaldo
 
-`FALLBACK_DATA` es un array de 46 objetos de modelo embebido en el archivo. Se usa cuando todas las peticiones de red fallan. Es navegable inmediatamente al abrir la página, antes de que cualquier fetch se complete.
+`FALLBACK_DATA` es un array de objetos de modelo embebido en el archivo. Se usa cuando todas las peticiones de red fallan. Es navegable inmediatamente al abrir la página, antes de que cualquier fetch se complete. Una GitHub Action (`.github/workflows/update-prices.yml`) lo mantiene actualizado: cada 6 horas scrapea la fuente y reescribe el bloque en `index.html`, commiteando sólo si hay cambios.
+
+### Cloudflare Worker (`docs-cors-proxy`)
+
+Proxy CORS propio compartido con el dashboard [gemini-models](https://github.com/pfelipm/gemini-models), desplegado en el tier gratuito de Cloudflare Workers:
+
+- `https://docs-cors-proxy.pfelipm.workers.dev/?url=<destino>`
+- Restringido a una allowlist: `opencode.ai/docs/*` y `ai.google.dev/gemini-api/docs/*` (403 fuera de ella)
+- Devuelve el HTML con `Access-Control-Allow-Origin: *` y caché de 5 minutos
+- El código fuente vive en el repo de gemini-models (`worker.js` + `wrangler.toml`)
 
 ---
 
@@ -179,7 +188,7 @@ python3 -m http.server 8000
 
 ## Limitaciones
 
-- **CORS**: El fetch directo a `opencode.ai` probablemente será bloqueado por la política de same-origin del navegador. El fallback de proxies lo maneja, pero los proxies pueden tener límites de tasa o caídas.
+- **CORS**: El fetch directo a `opencode.ai` será bloqueado por la política de same-origin del navegador (no envía `Access-Control-Allow-Origin`). Lo maneja el proxy propio (Cloudflare Worker), con `allorigins.win` como respaldo.
 - **Fragilidad del parseo**: Si la estructura de la página fuente cambia (encabezados de tabla, orden de columnas), el parser puede romperse. Los datos de respaldo aseguran que el dashboard siempre funcione.
 - **Persistencia solo vía enlace compartible**: El estado de los filtros, la búsqueda, el orden y la selección de comparación no se guardan en localStorage; **se codifican en la URL** mediante el botón **Compartir**, que copia un enlace con query string legible. Al abrir ese enlace, el dashboard restaura exactamente la misma vista. Ver [Botón Compartir y enlaces de vista](#botón-compartir-y-enlaces-de-vista) más abajo.
 - **Sin componente de servidor**: Toda la computación es del lado del cliente. No se necesitan claves de API.
