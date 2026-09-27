@@ -790,7 +790,7 @@ async function fetchPage(){
   }catch{}
   for(const proxy of CORS_PROXIES){
     try{
-      return await fetchWithTimeout(proxy(SOURCE_URL));
+      return await fetchWithTimeout(proxy(SOURCE_URL),20000);
     }catch{}
   }
   throw new Error("All fetch attempts failed");
