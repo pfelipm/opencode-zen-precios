@@ -68,6 +68,8 @@ Proxy CORS propio compartido con el dashboard [gemini-models](https://github.com
 
 - `https://docs-cors-proxy.pfelipm.workers.dev/?url=<destino>`
 - Restringido a una allowlist: `opencode.ai/docs/*` y `ai.google.dev/gemini-api/docs/*` (403 fuera de ella)
+- Comprueba el header `Origin` (sólo `pfelipm.github.io` o `null`/ausente) como higiene anti-hotlinking; no es un control de seguridad real, pues `Origin` lo controla el cliente
+- Riesgo aceptado: el agotamiento de cuota (100k req/día) por un atacante determinado. Sin worker, el dashboard degrada elegantemente a `FALLBACK_DATA`, refrescado cada 6h por la GitHub Action
 - Devuelve el HTML con `Access-Control-Allow-Origin: *` y caché de 5 minutos
 - El código fuente vive en el repo de gemini-models (`worker.js` + `wrangler.toml`)
 
