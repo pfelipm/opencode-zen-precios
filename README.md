@@ -1,6 +1,6 @@
 # Dashboard de precios de OpenCode Zen
 
-Dashboard interactivo de página única para explorar y comparar los precios de modelos de IA de [OpenCode Zen](https://opencode.ai/docs/es/zen/#precios).
+Dashboard interactivo de página única para explorar y comparar los precios de modelos de IA de [OpenCode Zen](https://opencode.ai/v2/docs/console/models/#pricing).
 
 ### [>> Pruébalo en vivo <<](https://pfelipm.github.io/opencode-zen-precios/)
 
@@ -27,7 +27,7 @@ Cero dependencias npm. Cero paso de build. Un archivo.
 ### Estrategia de fetch (al cargar la página + refresh manual)
 
 ```
-1. Fetch directo → https://opencode.ai/docs/es/zen/
+1. Fetch directo → https://opencode.ai/v2/docs/console/models/
    │
    ├─ éxito → parsear HTML
    │
@@ -42,13 +42,13 @@ Cero dependencias npm. Cero paso de build. Un archivo.
 
 ### Parseo de HTML (`parseDataFromHTML`)
 
-La página en `opencode.ai/docs/es/zen/` contiene tres elementos `<table>`. El parser usa `DOMParser` para extraer:
+La página en `opencode.ai/v2/docs/console/models/` contiene tres elementos `<table>`. El parser usa `DOMParser` para extraer:
 
 | Tabla | Identificada por | Campos extraídos |
 |-------|-----------------|-----------------|
 | **Endpoints** | Encabezado de columna contiene `"model id"` | mapeo `name → id` |
 | **Precios** | Encabezado de columna contiene `"entrada"` o `"input"` | `name`, `input`, `output`, `cacheRead`, `cacheWrite` |
-| **Obsoletos** | Encabezado de columna contiene `"retirada"` o `"retirement"` | mapeo `name → fecha de retirada` |
+| **Obsoletos** | Encabezado de columna contiene `"retirada"`, `"retirement"` o `"deprecat"` | mapeo `name → fecha de retirada` |
 
 Las celdas de precio se parsean con `parsePriceCell()`, que maneja `"Free"` → `0`, `"$5.00"` → `5.0`, `"—"` → `null`.
 
@@ -67,7 +67,7 @@ La detección de proveedor (`detectProvider`) clasifica los modelos por prefijo 
 Proxy CORS propio compartido con el dashboard [gemini-models](https://github.com/pfelipm/gemini-models), desplegado en el tier gratuito de Cloudflare Workers:
 
 - `https://docs-cors-proxy.pfelipm.workers.dev/?url=<destino>`
-- Restringido a una allowlist: `opencode.ai/docs/*` y `ai.google.dev/gemini-api/docs/*` (403 fuera de ella)
+- Restringido a una allowlist: `opencode.ai/v2/docs/*` y `ai.google.dev/gemini-api/docs/*` (403 fuera de ella)
 - Comprueba el header `Origin` (sólo `pfelipm.github.io` o `null`/ausente) como higiene anti-hotlinking; no es un control de seguridad real, pues `Origin` lo controla el cliente
 - Riesgo aceptado: el agotamiento de cuota (100k req/día) por un atacante determinado. Sin worker, el dashboard degrada elegantemente a `FALLBACK_DATA`, refrescado cada 6h por la GitHub Action
 - Devuelve el HTML con `Access-Control-Allow-Origin: *` y caché de 5 minutos

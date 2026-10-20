@@ -1,4 +1,4 @@
-const SOURCE_URL = 'https://opencode.ai/docs/es/zen/';
+const SOURCE_URL = 'https://opencode.ai/v2/docs/console/models/';
 const INDEX_PATH = 'index.html';
 
 const fs = require('fs');
@@ -87,7 +87,7 @@ function parseDataFromHTML(html) {
     const hdrs = headerCells(table);
     if (hdrs.some(h => h.includes('model id') || h.includes('modelid'))) endpointsTable = table;
     else if (hdrs.some(h => h.includes('entrada') || h.includes('input'))) pricingTable = table;
-    else if (hdrs.some(h => h.includes('retirada') || h.includes('retirement'))) deprecatedTable = table;
+    else if (hdrs.some(h => h.includes('retirada') || h.includes('retirement') || h.includes('deprecat'))) deprecatedTable = table;
   }
   if (!pricingTable) throw new Error('Pricing table not found');
 

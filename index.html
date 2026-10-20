@@ -335,7 +335,7 @@ footer a{color:var(--accent2)}
       <h3>&iquest;Qu&eacute; es este dashboard?</h3>
       <p>Esta Single Page Application (SPA) muestra la tabla de precios de modelos AI disponibles en <strong>OpenCode Zen</strong> de forma interactiva, con filtros por proveedor y tipo, ordenamiento por cualquier columna, y una vista de comparaci&oacute;n para seleccionar modelos lado a lado.</p>
       <h3>&iquest;De d&oacute;nde salen los datos?</h3>
-      <p>Al cargar la p&aacute;gina, se intenta obtener el HTML desde <code>https://opencode.ai/docs/es/zen/</code> y se parsean autom&aacute;ticamente tres tablas:</p>
+      <p>Al cargar la p&aacute;gina, se intenta obtener el HTML desde <code>https://opencode.ai/v2/docs/console/models/</code> y se parsean autom&aacute;ticamente tres tablas:</p>
       <ul>
         <li><strong>Tabla de endpoints</strong> &mdash; para obtener el <em>Model ID</em> de cada modelo</li>
         <li><strong>Tabla de precios</strong> &mdash; para entrada, salida, cache de lectura y cache de escritura (por 1M tokens)</li>
@@ -410,7 +410,7 @@ footer a{color:var(--accent2)}
 </div>
 
 <footer>
-  Datos de <a href="https://opencode.ai/docs/es/zen/#precios" target="_blank">opencode.ai/docs/es/zen</a> &middot; Precios por 1M tokens &middot; Comisiones de tarjeta: 4.4% + $0.30
+  Datos de <a href="https://opencode.ai/v2/docs/console/models/#pricing" target="_blank">opencode.ai/v2/docs/console/models</a> &middot; Precios por 1M tokens &middot; Comisiones de tarjeta: 4.4% + $0.30
 </footer>
 
 </div>
@@ -464,7 +464,7 @@ const FALLBACK_DATA = [
   {name:"Kimi K2.7 Code",id:"kimi-k2.7-code",provider:"other",input:0.95,output:4,cacheRead:0.19,cacheWrite:null,free:false},
   {name:"Kimi K3",id:"kimi-k3",provider:"other",input:3,output:15,cacheRead:0.3,cacheWrite:null,free:false},
   {name:"Kimi K2.6",id:"kimi-k2.6",provider:"other",input:0.95,output:4,cacheRead:0.16,cacheWrite:null,free:false},
-  {name:"Kimi K2.5",id:"kimi-k2.5",provider:"other",input:0.6,output:3,cacheRead:0.1,cacheWrite:null,free:false},
+  {name:"Kimi K2.5",id:"kimi-k2.5",provider:"other",input:0.6,output:3,cacheRead:0.1,cacheWrite:null,free:false,deprecated:"August 5, 2026"},
   {name:"Mistral Large 4 (50% off)",id:"mistral-large-4",provider:"other",input:1.36,output:4.18,cacheRead:0.14,cacheWrite:null,free:false},
   {name:"Qwen3.8 Max",id:"qwen3.8-max",provider:"other",input:2,output:6,cacheRead:0.25,cacheWrite:2.5,free:false},
   {name:"Qwen3.8 Flash",id:"qwen3.8-flash",provider:"other",input:0.15,output:0.47,cacheRead:0.016,cacheWrite:0.2,free:false},
@@ -543,7 +543,7 @@ const FALLBACK_DATA = [
   {name:"GPT 5 Nano",id:"gpt-5-nano",provider:"openai",input:0.05,output:0.4,cacheRead:0.005,cacheWrite:null,free:false}
 ];
 
-const SOURCE_URL = "https://opencode.ai/docs/es/zen/";
+const SOURCE_URL = "https://opencode.ai/v2/docs/console/models/";
 const WORKER_URL = "https://docs-cors-proxy.pfelipm.workers.dev";
 const CORS_PROXIES = [
   url => `${WORKER_URL}/?url=${encodeURIComponent(url)}`,
@@ -722,7 +722,7 @@ function parseDataFromHTML(html){
     const hdrs=Array.from(table.querySelectorAll("th,thead td")).map(c=>c.textContent.trim().toLowerCase());
     if(hdrs.some(h=>h.includes("model id")||h.includes("modelid")))endpointsTable=table;
     else if(hdrs.some(h=>h.includes("entrada")||h.includes("input")))pricingTable=table;
-    else if(hdrs.some(h=>h.includes("retirada")||h.includes("retirement")))deprecatedTable=table;
+    else if(hdrs.some(h=>h.includes("retirada")||h.includes("retirement")||h.includes("deprecat")))deprecatedTable=table;
   });
 
   const modelIdMap={};
