@@ -335,7 +335,7 @@ footer a{color:var(--accent2)}
       <h3>&iquest;Qu&eacute; es este dashboard?</h3>
       <p>Esta Single Page Application (SPA) muestra la tabla de precios de modelos AI disponibles en <strong>OpenCode Zen</strong> de forma interactiva, con filtros por proveedor y tipo, ordenamiento por cualquier columna, y una vista de comparaci&oacute;n para seleccionar modelos lado a lado.</p>
       <h3>&iquest;De d&oacute;nde salen los datos?</h3>
-      <p>Al cargar la p&aacute;gina, se intenta obtener el HTML desde <code>https://opencode.ai/v2/docs/console/models/</code> y se parsean autom&aacute;ticamente tres tablas:</p>
+      <p>Al cargar la p&aacute;gina, se obtiene la versi&oacute;n Markdown can&oacute;nica de la p&aacute;gina de modelos de la consola (<code>https://opencode.ai/docs/console/models.md</code>, anunciada en su <code>llms.txt</code>) y se clasifican sus tablas por cabecera, de modo que las de im&aacute;genes o embeddings nunca pueden confundirse con la de precios:</p>
       <ul>
         <li><strong>Tabla de endpoints</strong> &mdash; para obtener el <em>Model ID</em> de cada modelo</li>
         <li><strong>Tabla de precios</strong> &mdash; para entrada, salida, cache de lectura y cache de escritura (por 1M tokens)</li>
@@ -410,7 +410,7 @@ footer a{color:var(--accent2)}
 </div>
 
 <footer>
-  Datos de <a href="https://opencode.ai/v2/docs/console/models/#pricing" target="_blank">opencode.ai/v2/docs/console/models</a> &middot; Precios por 1M tokens &middot; Comisiones de tarjeta: 4.4% + $0.30
+  Datos de <a href="https://opencode.ai/docs/console/models/#pricing" target="_blank">opencode.ai/docs/console/models</a> &middot; Precios por 1M tokens &middot; Comisiones de tarjeta: 4.4% + $0.30
 </footer>
 
 </div>
@@ -549,7 +549,8 @@ const FALLBACK_DATA = [
   {name:"GPT 5 Nano",id:"gpt-5-nano",provider:"openai",input:0.05,output:0.4,cacheRead:0.005,cacheWrite:null,free:false}
 ];
 
-const SOURCE_URL = "https://opencode.ai/v2/docs/console/models/";
+// Endpoint Markdown canónico de la docs (política de llms.txt); el HTML para humanos es la misma URL sin ".md"
+const SOURCE_URL = "https://opencode.ai/docs/console/models.md";
 const WORKER_URL = "https://docs-cors-proxy.pfelipm.workers.dev";
 const CORS_PROXIES = [
   url => `${WORKER_URL}/?url=${encodeURIComponent(url)}`,
@@ -696,7 +697,7 @@ function shareLink(){
 
 function parsePriceCell(text){
   const t=text.trim();
-  if(!t||t==="\u2014"||t==="-"||t.toLowerCase()==="n/a")return null;
+  if(!t||t==="\u2014"||t==="-"||t.toLowerCase()==="n/a"||t.toLowerCase()==="not listed")return null;
   if(t.toLowerCase()==="free")return 0;
   const m=t.match(/\$?([\d,.]+)/);
   if(!m)return null;
@@ -719,52 +720,74 @@ function detectProvider(name,id){
   return"other";
 }
 
-function parseDataFromHTML(html){
-  const doc=new DOMParser().parseFromString(html,"text/html");
-  const tables=doc.querySelectorAll("table");
+function cleanMdCell(raw){
+  return raw
+    .replace(/~~[^~]*~~/g,"")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g,"$1")
+    .replace(/<[^>]*>/g,"")
+    .replace(/`([^`]*)`/g,"$1")
+    .replace(/\*\*([^*]*)\*\*/g,"$1")
+    .replace(/\*([^*]*)\*/g,"$1")
+    .trim();
+}
+
+function splitMdRow(line){
+  return line.trim().replace(/^\|/,"").replace(/\|$/,"").split("|").map(cleanMdCell);
+}
+
+function extractMarkdownTables(text){
+  const lines=text.split(/\r?\n/);
+  const tables=[];
+  let i=0;
+  while(i<lines.length){
+    if(lines[i].trim().startsWith("|")&&i+1<lines.length&&/^[\s|:-]+$/.test(lines[i+1])&&lines[i+1].includes("-")){
+      const header=splitMdRow(lines[i]);
+      i+=2;
+      const rows=[];
+      while(i<lines.length&&lines[i].trim().startsWith("|")){
+        rows.push(splitMdRow(lines[i]));
+        i++;
+      }
+      tables.push({header,rows});
+    }else i++;
+  }
+  return tables;
+}
+
+function parseDataFromMarkdown(text){
+  const tables=extractMarkdownTables(text);
 
   let endpointsTable,pricingTable,deprecatedTable;
-  tables.forEach(table=>{
-    const hdrs=Array.from(table.querySelectorAll("th,thead td")).map(c=>c.textContent.trim().toLowerCase());
-    if(hdrs.some(h=>h.includes("model id")||h.includes("modelid")))endpointsTable=table;
-    else if(hdrs.some(h=>h.includes("entrada")||h.includes("input")))pricingTable=table;
-    else if(hdrs.some(h=>h.includes("retirada")||h.includes("retirement")||h.includes("deprecat")))deprecatedTable=table;
+  tables.forEach(t=>{
+    const hdrs=t.header.map(h=>h.toLowerCase());
+    if(hdrs.some(h=>h.includes("model id")||h.includes("modelid")))endpointsTable=endpointsTable||t;
+    else if(hdrs.length>=4&&hdrs.includes("input")&&hdrs.includes("output")&&hdrs.includes("cached read"))pricingTable=pricingTable||t;
+    else if(hdrs.some(h=>h.includes("retirada")||h.includes("retirement")||h.includes("deprecat")))deprecatedTable=deprecatedTable||t;
   });
 
   const modelIdMap={};
   if(endpointsTable){
-    endpointsTable.querySelectorAll("tbody tr").forEach(row=>{
-      const cells=row.querySelectorAll("td");
-      if(cells.length>=2){
-        const name=cells[0].textContent.trim();
-        const id=cells[1].textContent.trim();
-        modelIdMap[name]=id;
-      }
+    endpointsTable.rows.forEach(cells=>{
+      if(cells.length>=2)modelIdMap[cells[0]]=cells[1];
     });
   }
 
   const deprecatedMap={};
   if(deprecatedTable){
-    deprecatedTable.querySelectorAll("tbody tr").forEach(row=>{
-      const cells=row.querySelectorAll("td");
-      if(cells.length>=2){
-        const name=cells[0].textContent.trim();
-        const date=cells[1].textContent.trim();
-        deprecatedMap[name]=date;
-      }
+    deprecatedTable.rows.forEach(cells=>{
+      if(cells.length>=2)deprecatedMap[cells[0]]=cells[1];
     });
   }
 
   const data=[];
   if(pricingTable){
-    pricingTable.querySelectorAll("tbody tr").forEach(row=>{
-      const cells=row.querySelectorAll("td");
+    pricingTable.rows.forEach(cells=>{
       if(cells.length<4)return;
-      const name=cells[0].textContent.trim();
-      const input=parsePriceCell(cells[1].textContent);
-      const output=parsePriceCell(cells[2].textContent);
-      const cacheRead=parsePriceCell(cells[3].textContent);
-      const cacheWrite=cells.length>=5?parsePriceCell(cells[4].textContent):null;
+      const name=cells[0];
+      const input=parsePriceCell(cells[1]);
+      const output=parsePriceCell(cells[2]);
+      const cacheRead=parsePriceCell(cells[3]);
+      const cacheWrite=cells.length>=5?parsePriceCell(cells[4]):null;
 
       let id=modelIdMap[name]||null;
       if(!id){
@@ -820,8 +843,9 @@ async function refreshData(){
 
   try{
     const html=await fetchPage();
-    const parsed=parseDataFromHTML(html);
-    if(parsed.length>0){
+    const parsed=parseDataFromMarkdown(html);
+    const minRows=Math.max(1,Math.floor(FALLBACK_DATA.length/2));
+    if(parsed.length>=minRows){
       DATA=parsed;
       maxOutput=Math.max(...DATA.map(d=>d.output));
       maxInput=Math.max(...DATA.map(d=>d.input));
@@ -829,7 +853,7 @@ async function refreshData(){
       pill.className="status-pill ok";
       pill.innerHTML='<span class="dot"></span>Datos en vivo';
     }else{
-      throw new Error("Parsed 0 rows");
+      throw new Error("Parsed "+parsed.length+" rows, esperaba al menos "+minRows);
     }
   }catch(e){
     DATA=FALLBACK_DATA.slice();

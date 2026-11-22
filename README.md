@@ -1,6 +1,6 @@
 # Dashboard de precios de OpenCode Zen
 
-Dashboard interactivo de página única para explorar y comparar los precios de modelos de IA de [OpenCode Zen](https://opencode.ai/v2/docs/console/models/#pricing).
+Dashboard interactivo de página única para explorar y comparar los precios de modelos de IA de [OpenCode Zen](https://opencode.ai/docs/console/models/#pricing).
 
 ### [>> Pruébalo en vivo <<](https://pfelipm.github.io/opencode-zen-precios/)
 
@@ -15,7 +15,7 @@ Dashboard interactivo de página única para explorar y comparar los precios de 
 | Marcado | HTML5 vanilla |
 | Estilos | CSS3 vanilla (custom properties, grid, flexbox) |
 | Lógica | ES6+ vanilla (sin frameworks, sin dependencias) |
-| Fuente de datos | HTML remoto scrapeado en tiempo de ejecución vía `fetch()` |
+| Fuente de datos | Markdown canónico remoto parseado en tiempo de ejecución vía `fetch()` |
 | Despliegue | Archivo estático — sirve desde cualquier sitio o abre localmente |
 
 Cero dependencias npm. Cero paso de build. Un archivo.
@@ -27,9 +27,9 @@ Cero dependencias npm. Cero paso de build. Un archivo.
 ### Estrategia de fetch (al cargar la página + refresh manual)
 
 ```
-1. Fetch directo → https://opencode.ai/v2/docs/console/models/
+1. Fetch directo → https://opencode.ai/docs/console/models.md
    │
-   ├─ éxito → parsear HTML
+   ├─ éxito → parsear Markdown
    │
    └─ fallo (CORS) → intentar proxies CORS en orden:
        │
@@ -40,17 +40,21 @@ Cero dependencias npm. Cero paso de build. Un archivo.
        └─ todos fallan → usar FALLBACK_DATA embebido
 ```
 
-### Parseo de HTML (`parseDataFromHTML`)
+### Parseo de Markdown (`parseDataFromMarkdown`)
 
-La página en `opencode.ai/v2/docs/console/models/` contiene tres elementos `<table>`. El parser usa `DOMParser` para extraer:
+La fuente es el endpoint Markdown canónico `https://opencode.ai/docs/console/models.md`, anunciado en el `llms.txt` de opencode.ai (el HTML para humanos es la misma URL sin `.md`). Las tablas Markdown se clasifican por **cabecera**, no por posición:
 
 | Tabla | Identificada por | Campos extraídos |
 |-------|-----------------|-----------------|
-| **Endpoints** | Encabezado de columna contiene `"model id"` | mapeo `name → id` |
-| **Precios** | Encabezado de columna contiene `"entrada"` o `"input"` | `name`, `input`, `output`, `cacheRead`, `cacheWrite` |
-| **Obsoletos** | Encabezado de columna contiene `"retirada"`, `"retirement"` o `"deprecat"` | mapeo `name → fecha de retirada` |
+| **Endpoints** | Cabecera contiene `"model id"` | mapeo `name → id` |
+| **Precios** | Cabecera con `"input"` + `"output"` + `"cached read"` (≥ 4 columnas) | `name`, `input`, `output`, `cacheRead`, `cacheWrite` |
+| **Obsoletos** | Cabecera contiene `"retirada"`, `"retirement"` o `"deprecat"` | mapeo `name → fecha de retirada` |
 
-Las celdas de precio se parsean con `parsePriceCell()`, que maneja `"Free"` → `0`, `"$5.00"` → `5.0`, `"—"` → `null`.
+Las tablas de imágenes (`Model|Price|Notes`) y de embeddings (`Model|Input`) quedan excluidas **por diseño**: la de precios exige las tres columnas clave. `cleanMdCell()` normaliza cada celda: un precio tachado `~~$1.40~~ $0.56` devuelve el precio efectivo con descuento, y se limpian enlaces, backticks, negritas y HTML embebido.
+
+Las celdas de precio se parsean con `parsePriceCell()`, que maneja `"Free"` → `0`, `"$5.00"` → `5.0`, `"—"`/`"-"`/`"Not listed"` → `null`.
+
+> Histórico de la fuente: ya migró dos veces (`docs/es/zen` → `v2/docs/console/models`, oct 2026 → `docs/console/models`, nov 2026). El endpoint `.md` es el contrato publicado por opencode.ai para consumo automatizado (LLMs y agentes), la vía más estable frente a futuras reorganizaciones del HTML.
 
 La detección de proveedor (`detectProvider`) clasifica los modelos por prefijo del nombre/ID:
 - `gpt*` → OpenAI
@@ -60,17 +64,17 @@ La detección de proveedor (`detectProvider`) clasifica los modelos por prefijo 
 
 ### Datos de respaldo
 
-`FALLBACK_DATA` es un array de objetos de modelo embebido en el archivo. Se usa cuando todas las peticiones de red fallan. Es navegable inmediatamente al abrir la página, antes de que cualquier fetch se complete. Una GitHub Action (`.github/workflows/update-prices.yml`) lo mantiene actualizado: cada 6 horas scrapea la fuente y reescribe el bloque en `index.html`, commiteando sólo si hay cambios.
+`FALLBACK_DATA` es un array de objetos de modelo embebido en el archivo. Se usa cuando todas las peticiones de red fallan. Es navegable inmediatamente al abrir la página, antes de que cualquier fetch se complete. Una GitHub Action (`.github/workflows/update-prices.yml`) lo mantiene actualizado: cada 6 horas descarga el endpoint Markdown canónico y reescribe el bloque en `index.html`, commiteando sólo si hay cambios. Guardianas de cordura: si el parseo cae por debajo del 80% del fallback anterior, o falta la tabla de obsoletos, la Action falla con error (y email) en lugar de degradar los datos en silencio.
 
 ### Cloudflare Worker (`docs-cors-proxy`)
 
 Proxy CORS propio compartido con el dashboard [gemini-models](https://github.com/pfelipm/gemini-models), desplegado en el tier gratuito de Cloudflare Workers:
 
 - `https://docs-cors-proxy.pfelipm.workers.dev/?url=<destino>`
-- Restringido a una allowlist: `opencode.ai/v2/docs/*` y `ai.google.dev/gemini-api/docs/*` (403 fuera de ella)
+- Restringido a una allowlist: `opencode.ai/docs/*`, `opencode.ai/v2/docs/*` (legado, ahora 301) y `ai.google.dev/gemini-api/docs/*` (403 fuera de ella)
 - Comprueba el header `Origin` (sólo `pfelipm.github.io` o `null`/ausente) como higiene anti-hotlinking; no es un control de seguridad real, pues `Origin` lo controla el cliente
 - Riesgo aceptado: el agotamiento de cuota (100k req/día) por un atacante determinado. Sin worker, el dashboard degrada elegantemente a `FALLBACK_DATA`, refrescado cada 6h por la GitHub Action
-- Devuelve el HTML con `Access-Control-Allow-Origin: *` y caché de 5 minutos
+- Devuelve la respuesta (HTML o Markdown) con `Access-Control-Allow-Origin: *` y caché de 5 minutos
 - El código fuente vive en el repo de gemini-models (`worker.js` + `wrangler.toml`)
 
 ---
@@ -191,7 +195,7 @@ python3 -m http.server 8000
 ## Limitaciones
 
 - **CORS**: El fetch directo a `opencode.ai` será bloqueado por la política de same-origin del navegador (no envía `Access-Control-Allow-Origin`). Lo maneja el proxy propio (Cloudflare Worker), con `allorigins.win` como respaldo.
-- **Fragilidad del parseo**: Si la estructura de la página fuente cambia (encabezados de tabla, orden de columnas), el parser puede romperse. Los datos de respaldo aseguran que el dashboard siempre funcione.
+- **Fragilidad del parseo**: La fuente es el endpoint Markdown canónico, mucho más estable que el HTML (que ya reorganizó opencode.ai dos veces), pero si cambia el formato de las tablas el parser puede romperse. Las guardianas de la Action convierten esa rotura en un fallo ruidoso (email) y el fallback local mantiene el dashboard operativo.
 - **Persistencia solo vía enlace compartible**: El estado de los filtros, la búsqueda, el orden y la selección de comparación no se guardan en localStorage; **se codifican en la URL** mediante el botón **Compartir**, que copia un enlace con query string legible. Al abrir ese enlace, el dashboard restaura exactamente la misma vista. Ver [Botón Compartir y enlaces de vista](#botón-compartir-y-enlaces-de-vista) más abajo.
 - **Sin componente de servidor**: Toda la computación es del lado del cliente. No se necesitan claves de API.
 
